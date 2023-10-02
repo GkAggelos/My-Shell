@@ -1,75 +1,70 @@
 # My-Shell
-Simple shell for Unix. Για την μεταγλώτηση τρέξε την εντολή make και για την εκτέλεση ./mysh
+Simple shell for Unix. To compile run "make" and then "./mysh" to execute.
 
-Οι τρείς βασικές συναρτήσεις είναι η main η processString και η execute_command.
+## Parsing
+The 3 functions for parsing is **main()**, **processString()** and **execute_command()**.
 
-Η main διαβάζει την εντολή την αποθηκεύει σε μια δομή για την υλοποίηση του ιστορικού και
-καλεί την execute_command, ενώ επίσης ορίζει την συνάρτηση διαχείρισης του σηματος SIGCHLD και 
-οτι τα σηματα ctrl c και ctrl z θα αγνούνται.
+**`Main`** reads the command saves it for history purpose and calls the function **execute_command()**, also 
+defines a function handler for SIGCHLD signal and ignores ctrl c and ctrl z signals.
 
-Η execute_command κάνει parse την εντολή και άμα η εντολή δεν περιέχει κάποιο εκτελέσιμο (δηλαδή είναι μια 
-από τις βασικές εντολές που υποστιρίζει το κέλυφος) την εκτελεί αλλιώς καλεί την processString για να την εκτελέσει.
+**`Execute_command`** parses the command that takes as argument and if the command is one of those that 
+Unix has no defult implementation exetuces it directly or calls the function **processString()** to handle it.
 
-Η processString επεξεργάζεται τα tokens της εντολής και υλοποιεί τις βασικές λειτουργίες του κελύφους (δηλαδή 
-Ανακατεύθυνση εισόδου / εξόδου, Υποστήριξη σωληνώσεων, Εκτέλεση εντολών στο Background, Υποστήριξη wild characters),
-ενώ στο τέλος εκτελεί το εκτελέσιμο αρχείο.
+**`ProcessString`** implements the basics features of the shell (such as Redirections, Pipes, Background 
+commands and Wild characters) and executes program files if there are any.
 
-1. Υποστήριξη Ανακατευθύνσεων
+## 1. Redirections
 
-Οι ανακατευθύνσεις υλοποιούνται στην processString. Αν ένα token αντιστοιχεί σε σύμβολο ανακατεύθυνσης ξέρουμε
-οτι το επόμενο token θα είναι ένα όνομα αρχείου το οποίο και αποθηκεύουμε για να το ανοίξει το παιδί που θα 
-εκτελέσει το εκτελέσιμο πρόγραμμα. Επίσης αποθηκεύουμε και τον τύπο της ανακατεύθυνσης.
+**ProcessString()** is responsible for the Redirections. If the command has a redirection token (<, >, >>) the
+next token has to be a file name that has to be saved, so the next child that will execute the program file knows 
+where to save the output or to take the input. Also saves the type of the redirection so the child knows how to handle it.     
 
-2. Υποστήριξη σωληνώσεων
+## 2. Pipes
 
-Οι σωληνώσεις υλοποιούνται στην processString. Αν ένα token αντιστοιχεί σε σύμβολο σωλήνωσης τότε θα πρέπει να 
-δημιουργήσουμε ένα pipe. Επειδή όταν έχουμε σωλήνωση χρειάζεται να εκτελεστουν δύο προγράμματα, όταν εντοπίσουμε 
-σύμβολο σωλήνωσης σταματάμε την επεξεργασία των tokens και αφήνουμε το παιδί να εκτελέσει το πρόγραμμα, ενώ ο 
-γονέας ξανα καλεί την processString ώστε να εκτελεστεί και η υπόλοιπη εντολή μεταφέροντας το read end του pipe 
-για να ξέρει το επόμενο πρόγραμμα οτι υπήρχε σωλήνωση και από που θα διαβάζει.
+**ProcessString()** is responsible for the Pipes. If the command has a pipe token ( | ) then has to genarate a pipe.
+In this case the child will execute the command that have been read until the pipe token occurred and the parent
+will call the **ProcessString()** again to execute the next part of the commnand. Both child and parent knows the
+read end and write end of the pipe, so the child send the output to the parent and the parent takes the input from
+the child.
 
-3. Εκτέλεση εντολών στο Background
+## 3. Background commands
 
-Η εκτέλεση εντολών στο background υλοποιείται στην processString. Αν ένα token αντιστοιχεί σε σύμβολο εκτέλεσης
-εντολής στο background τότε αυτό αποθηκεύεται, ενώ όταν το παιδί πάει να εκτελέσει την εντολή αφήνει τα σήματα
-ctrl c και ctrl z να αγνούνται. Ο πάτερας απο την άλλη δεν περιμένει το παιδί να τελειώσει και προχοράει στην 
-επόμενη εντολή, ενώ για να μην γίνει zombie το παιδί παριμένει για το status του όταν τελειώσει και σταλθεί ένα
-σήμα SIGCHLD μέσω της συνάρτησης background_termination.  
+**ProcessString()** is responsible for the Background commands. If the command has a background token (&) then
+the child ignores ctrl c and ctrl z signals. On the other hand the parent does not wait for the child and 
+continues with the next command, until a SIGCHLD signal occurres and waits for the child status so we do not have
+zombies.
 
-4. Υποστήριξη wild characters
-Η υποστήριξη wild characters υλοποιείται στην processString. Αν ένα token εμπεριέχει κάποιο wildcard τότε ξέρουμε
-ότι υποδηλώνει ένα υποσύνολο αρχείων. Για να βρούμε αυτό το υποσύνολο καλούμε την συνάρτηση wildcard. Η wildcard
-με την σειρά της καλέι την glob η οποία δίνοντας της το token βρήσκει το υποσύνολο αρχείων αν υπάρχει. Για 
-οποιοδείποτε λάθος εκτυπώνεται αντίστοιχο μήνυμα. 
+## 4. Wild characters
 
-5. Διαχείριση aliases
+**ProcessString()** is responsible for the Wild characters. If a token has a wildcard (*, [, ?) then it calls the
+**wildcard()** function that with the help of **glob()** returns the file subset or an error message. 
 
-Τα aliases είναι μεταβλητές τύπου struct aliasEntry και αποθηκεύονται σε μια δομή δεδομένων ώστε να ανακτούνται
-όταν χρειάζεται. Οι εντολές που διαχειρίζονται τα aliases υλοποιούνται στην execute_command (δηλαδή αποθήκευση
-και διαγραφή κάποιου alias). Επίσης η execute_command υλοποιεί και την εκτέλεση των aliases, καθώς εντοπίζει αν
-η εντολή περιέχει καποιο ενεργό alias και την αντικαθηστά με την εντολή που αντιστοιχεί στο alias που βρήκε.
+## 5. Aliases
 
-6. Διαχείριση Σημάτων
+Aliases is variables of type struct aliasEntry and are saved in a table. **Execute_command** has the implementation
+of all the commands for aliases (alias execution, save alias and delete alias). When have to execute an alias just
+replace the alias with the corresponding command. 
 
-Τα σήματα ctrl c και ctrl z αγνούνται από το κέλυφος ενώ γίνεται η defult διαδικασία στις διεργασίες παιδία που δεν
-τρέχουν στο background. Επίσης η background_termination διαχειρίζεται το SIGCHLD ωστε να περιμένει τις διεργασίες
-που τρέχουν στο background.
+## 6. Signals
 
-7. Αποθήκευση ιστορικού 
+The shell ignores ctrl c and ctrl z signals and restores the defult actions for a program execution that is not runing
+at the background. Also the function **background_termination()** handles the SIGCHLD so the background processes will
+never become zombies.
 
-Το ιστορικό των εντολών αποθηκεύεται σε μία δομή και εμφανίζεται με την εντολή "history", ενώ με την εντολή 
-"history αριθμός εντολής" εκτελείται η εντολή με εκείνο τον αριθμό.
+## 7. History 
 
-Γενικά
+The history is saved in a table and shows up with the command "history". With command "history [command number]" the
+command with this number is executed.
 
-Έχω υλοποιήσει και την εντολή cd (εμπεριέχεται στις βασικές εντολές που εκτελεί η execute_command).
-Κάθε συνάρτηση που χρεισημοποιώ που δεν είναι δικία μου σε περίπτωση λάθους εκτελείτε η perror για να
-εμφανιστεί το μήνυμα λάθους.
-Μόνο όταν κάποιο παιδί δεν επιστρέψει status 0 εμφανίζω το id του και το status του.
-Με την εντολή "printalias" εκτυπώνονται τα ενεργά aliases.
-Όταν τρέχει μια διεργασία στο background εκτυπώνεται ενα μήνυμα οτι η διεργασία αυτή τρέχει στο background
-και υπάρχει ένα bug, καθώς άμα αυτή η διεργασία τελειώνει γρήγορα και εμφανίζει αποτελέσματα τότε το promt 
-του κελύφους εκτυπώνεται μαζί με τα αποτελέσματα.
-Επίσης κάθε εντολή που δίνεται θα πρέπει να διαχωρίζεται με κενά για να την καταλαβαίνει το κέλυφος
-πχ. το ./count1&; ./count2&; δεν το καταλαβαίνει θα πρέπει να δωθεί ετσι ./count1 &; ./count2 &;
-και μια εντολή δεν επηρεαζεται απο το ctrl c και το  ctrl z αν είναι στο background οπως γινεται και στο bash shell.
+## General
+
+I have implement and the command cd (is at the basics commands that **execute_command()** executes).
+
+When a child do not return a status 0 i print the id and the status of the child.
+
+The command "printalias" prints all the aliases.
+
+There is a chance that when a background process prints its output the shell promt prints with it.
+
+All the tokens of the command has to be separated for example ./count1&; ./count2&; will not be able 
+to execute but ./count1 &; ./count2 &; will be.     
