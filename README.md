@@ -1,6 +1,5 @@
 # My-Shell
-Simple shell for Unix 
-Για την μεταγλώτηση τρέξε την εντολή make και για την εκτέλεση ./mysh
+Simple shell for Unix. Για την μεταγλώτηση τρέξε την εντολή make και για την εκτέλεση ./mysh
 
 Οι τρείς βασικές συναρτήσεις είναι η main η processString και η execute_command.
 
